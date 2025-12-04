@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { authenticate, AuthRequest } from '../middleware/auth.js';
@@ -26,8 +26,9 @@ function generateToken(userId: string, email: string): string {
     if (!jwtSecret) {
         throw new Error('JWT_SECRET environment variable is not defined');
     }
-    const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-    return jwt.sign({ userId, email }, jwtSecret, { expiresIn });
+    return jwt.sign({ userId, email }, jwtSecret, {
+        expiresIn: '7d'
+    });
 }
 
 // Register
