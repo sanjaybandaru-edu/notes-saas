@@ -137,7 +137,9 @@ export default function Dashboard() {
                                     value={newTopicName}
                                     onChange={(e) => {
                                         setNewTopicName(e.target.value);
-                                        setNewTopicSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                                        if (!newTopicSlug || newTopicSlug === e.target.value.slice(0, -1).toLowerCase().replace(/\s+/g, '-')) {
+                                            setNewTopicSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                                        }
                                     }}
                                     className="input"
                                     autoFocus
