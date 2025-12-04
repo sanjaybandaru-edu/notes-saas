@@ -6,9 +6,7 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth.js';
-import topicRoutes from './routes/topics.js';
-import noteRoutes from './routes/notes.js';
-import fileRoutes from './routes/files.js';
+import academicRoutes from './routes/academic.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -43,9 +41,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/topics', topicRoutes);
-app.use('/api/notes', noteRoutes);
-app.use('/api/files', fileRoutes);
+app.use('/api/academic', academicRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -57,7 +53,7 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📚 API documentation at http://localhost:${PORT}/api/docs`);
+    console.log(`📚 EduDocs API ready`);
 });
 
 export default app;

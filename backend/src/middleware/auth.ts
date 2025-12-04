@@ -1,13 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
-import { unauthorized } from './errorHandler.js';
+import { unauthorized, forbidden } from './errorHandler.js';
+import { UserRole } from '@prisma/client';
 
 export interface AuthRequest extends Request {
     user?: {
         id: string;
         email: string;
-        role: string;
+        role: UserRole;
+        isOnboarded?: boolean;
     };
 }
 
@@ -33,11 +35,15 @@ export async function authenticate(
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
-            select: { id: true, email: true, role: true },
+            select: { id: true, email: true, role: true, isOnboarded: true, isActive: true },
         });
 
         if (!user) {
             throw unauthorized('User not found');
+        }
+
+        if (!user.isActive) {
+            throw unauthorized('Account is deactivated');
         }
 
         req.user = user;
@@ -51,13 +57,49 @@ export async function authenticate(
     }
 }
 
+// Role-based access control middleware
+export function requireRole(allowedRoles: UserRole[]) {
+    return (req: AuthRequest, res: Response, next: NextFunction) => {
+        if (!req.user) {
+            return next(unauthorized('Authentication required'));
+        }
+
+        if (!allowedRoles.includes(req.user.role)) {
+            return next(forbidden(`Access denied. Required roles: ${allowedRoles.join(', ')}`));
+        }
+
+        next();
+    };
+}
+
+// Legacy requireAdmin for backwards compatibility
 export function requireAdmin(
     req: AuthRequest,
     res: Response,
     next: NextFunction
 ) {
-    if (req.user?.role !== 'ADMIN') {
-        return next(unauthorized('Admin access required'));
+    if (!req.user) {
+        return next(unauthorized('Authentication required'));
+    }
+
+    if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
+        return next(forbidden('Admin access required'));
+    }
+    next();
+}
+
+// Require onboarding to be completed
+export function requireOnboarded(
+    req: AuthRequest,
+    res: Response,
+    next: NextFunction
+) {
+    if (!req.user) {
+        return next(unauthorized('Authentication required'));
+    }
+
+    if (!req.user.isOnboarded) {
+        return next(forbidden('Please complete onboarding first'));
     }
     next();
 }
@@ -84,7 +126,7 @@ export function optionalAuth(
 
         prisma.user.findUnique({
             where: { id: decoded.userId },
-            select: { id: true, email: true, role: true },
+            select: { id: true, email: true, role: true, isOnboarded: true },
         }).then(user => {
             if (user) {
                 req.user = user;

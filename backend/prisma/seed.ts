@@ -1,439 +1,425 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole, DegreeType, SemesterType, SubjectType, ContentStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-    console.log('🌱 Seeding database...');
+    console.log('🌱 Starting EduDocs seed...');
 
-    const email = 'sanjay@collegehive.in';
-    let user = await prisma.user.findUnique({
-        where: { email }
+    // ============= ACADEMIC YEAR =============
+    const academicYear = await prisma.academicYear.upsert({
+        where: { id: 'ay-2024-25' },
+        update: {},
+        create: {
+            id: 'ay-2024-25',
+            name: '2024-25',
+            startDate: new Date('2024-07-01'),
+            endDate: new Date('2025-06-30'),
+            isActive: true,
+        },
+    });
+    console.log('✅ Academic Year created:', academicYear.name);
+
+    // ============= UNIVERSITY =============
+    const university = await prisma.university.upsert({
+        where: { code: 'VTU' },
+        update: {},
+        create: {
+            name: 'Visvesvaraya Technological University',
+            code: 'VTU',
+            logo: 'https://vtu.ac.in/logo.png',
+            website: 'https://vtu.ac.in',
+            academicYearId: academicYear.id,
+        },
+    });
+    console.log('✅ University created:', university.name);
+
+    // ============= CAMPUS =============
+    const mainCampus = await prisma.campus.upsert({
+        where: { universityId_code: { universityId: university.id, code: 'MAIN' } },
+        update: {},
+        create: {
+            name: 'Main Campus',
+            code: 'MAIN',
+            location: 'Belgaum, Karnataka',
+            universityId: university.id,
+        },
+    });
+    console.log('✅ Campus created:', mainCampus.name);
+
+    // ============= DEPARTMENTS =============
+    const cseDept = await prisma.department.upsert({
+        where: { campusId_code: { campusId: mainCampus.id, code: 'CSE' } },
+        update: {},
+        create: {
+            name: 'Computer Science & Engineering',
+            code: 'CSE',
+            description: 'Department of Computer Science and Engineering',
+            icon: '💻',
+            campusId: mainCampus.id,
+        },
     });
 
-    if (!user) {
-        console.log('Creating demo user...');
-        const passwordHash = await bcrypt.hash('NotesApp123!', 12);
-        user = await prisma.user.create({
-            data: {
-                email,
-                passwordHash,
-                name: 'Sanjay',
-                role: 'ADMIN',
-            }
+    const mbaDept = await prisma.department.upsert({
+        where: { campusId_code: { campusId: mainCampus.id, code: 'MBA' } },
+        update: {},
+        create: {
+            name: 'School of Business Administration',
+            code: 'MBA',
+            description: 'Master of Business Administration',
+            icon: '📊',
+            campusId: mainCampus.id,
+        },
+    });
+    console.log('✅ Departments created: CSE, MBA');
+
+    // ============= PROGRAMS =============
+    const btechCSE = await prisma.program.upsert({
+        where: { departmentId_code: { departmentId: cseDept.id, code: 'BTECH-CSE' } },
+        update: {},
+        create: {
+            name: 'Bachelor of Technology in Computer Science',
+            code: 'BTECH-CSE',
+            shortName: 'B.Tech CSE',
+            duration: 4,
+            totalSemesters: 8,
+            degreeType: DegreeType.UNDERGRADUATE,
+            departmentId: cseDept.id,
+        },
+    });
+
+    const mbaProg = await prisma.program.upsert({
+        where: { departmentId_code: { departmentId: mbaDept.id, code: 'MBA' } },
+        update: {},
+        create: {
+            name: 'Master of Business Administration',
+            code: 'MBA',
+            shortName: 'MBA',
+            duration: 2,
+            totalSemesters: 4,
+            degreeType: DegreeType.POSTGRADUATE,
+            departmentId: mbaDept.id,
+        },
+    });
+    console.log('✅ Programs created: B.Tech CSE, MBA');
+
+    // ============= SEMESTERS =============
+    const semesters: { number: number; type: SemesterType }[] = [
+        { number: 1, type: SemesterType.ODD },
+        { number: 2, type: SemesterType.EVEN },
+        { number: 3, type: SemesterType.ODD },
+        { number: 4, type: SemesterType.EVEN },
+        { number: 5, type: SemesterType.ODD },
+        { number: 6, type: SemesterType.EVEN },
+        { number: 7, type: SemesterType.ODD },
+        { number: 8, type: SemesterType.EVEN },
+    ];
+
+    for (const sem of semesters) {
+        await prisma.semester.upsert({
+            where: { programId_number: { programId: btechCSE.id, number: sem.number } },
+            update: {},
+            create: {
+                number: sem.number,
+                type: sem.type,
+                programId: btechCSE.id,
+            },
         });
-        console.log('✅ Created user:', user.email);
-    } else {
-        console.log('User already exists:', user.email);
+    }
+    console.log('✅ Semesters created for B.Tech CSE (1-8)');
+
+    // Get Semester 3 for subjects
+    const semester3 = await prisma.semester.findUnique({
+        where: { programId_number: { programId: btechCSE.id, number: 3 } },
+    });
+
+    if (semester3) {
+        // ============= ELECTIVE GROUP =============
+        const oeGroupA = await prisma.electiveGroup.upsert({
+            where: { code: 'OE-A-S3' },
+            update: {},
+            create: {
+                name: 'Open Elective Group A',
+                code: 'OE-A-S3',
+                description: 'Choose one from the available options',
+                minChoice: 1,
+                maxChoice: 1,
+            },
+        });
+
+        // ============= SUBJECTS =============
+        const dsSubject = await prisma.subject.upsert({
+            where: { semesterId_code: { semesterId: semester3.id, code: '21CS32' } },
+            update: {},
+            create: {
+                name: 'Data Structures',
+                code: '21CS32',
+                description: 'Fundamental data structures and algorithms',
+                credits: 4,
+                subjectType: SubjectType.THEORY,
+                isCore: true,
+                semesterId: semester3.id,
+            },
+        });
+
+        await prisma.subject.upsert({
+            where: { semesterId_code: { semesterId: semester3.id, code: '21CS33' } },
+            update: {},
+            create: {
+                name: 'Database Management Systems',
+                code: '21CS33',
+                description: 'Relational databases, SQL, and database design',
+                credits: 3,
+                subjectType: SubjectType.THEORY,
+                isCore: true,
+                semesterId: semester3.id,
+            },
+        });
+
+        await prisma.subject.upsert({
+            where: { semesterId_code: { semesterId: semester3.id, code: '21CS34' } },
+            update: {},
+            create: {
+                name: 'Operating Systems',
+                code: '21CS34',
+                description: 'Process management, memory, and file systems',
+                credits: 3,
+                subjectType: SubjectType.THEORY,
+                isCore: true,
+                semesterId: semester3.id,
+            },
+        });
+
+        // Elective subjects
+        await prisma.subject.upsert({
+            where: { semesterId_code: { semesterId: semester3.id, code: '21OE-PY' } },
+            update: {},
+            create: {
+                name: 'Python Programming',
+                code: '21OE-PY',
+                description: 'Introduction to Python programming',
+                credits: 3,
+                subjectType: SubjectType.THEORY,
+                isCore: false,
+                semesterId: semester3.id,
+                electiveGroupId: oeGroupA.id,
+            },
+        });
+
+        await prisma.subject.upsert({
+            where: { semesterId_code: { semesterId: semester3.id, code: '21OE-WD' } },
+            update: {},
+            create: {
+                name: 'Web Development',
+                code: '21OE-WD',
+                description: 'HTML, CSS, JavaScript, and modern frameworks',
+                credits: 3,
+                subjectType: SubjectType.THEORY,
+                isCore: false,
+                semesterId: semester3.id,
+                electiveGroupId: oeGroupA.id,
+            },
+        });
+
+        console.log('✅ Subjects created for Semester 3');
+
+        // ============= CHAPTERS & TOPICS =============
+        const chapter1 = await prisma.chapter.upsert({
+            where: { subjectId_slug: { subjectId: dsSubject.id, slug: 'arrays' } },
+            update: {},
+            create: {
+                title: 'Arrays',
+                slug: 'arrays',
+                description: 'Introduction to arrays and their operations',
+                order: 1,
+                status: ContentStatus.PUBLISHED,
+                subjectId: dsSubject.id,
+            },
+        });
+
+        // Create admin user first for topics
+        const adminPassword = await bcrypt.hash('Admin@123', 10);
+        const adminUser = await prisma.user.upsert({
+            where: { email: 'admin@edudocs.in' },
+            update: {},
+            create: {
+                email: 'admin@edudocs.in',
+                passwordHash: adminPassword,
+                name: 'Admin User',
+                role: UserRole.SUPER_ADMIN,
+                isOnboarded: true,
+            },
+        });
+
+        await prisma.topic.upsert({
+            where: { chapterId_slug: { chapterId: chapter1.id, slug: 'introduction-to-arrays' } },
+            update: {},
+            create: {
+                title: 'Introduction to Arrays',
+                slug: 'introduction-to-arrays',
+                content: `# Introduction to Arrays
+
+An **array** is a collection of elements stored at contiguous memory locations. It is one of the most fundamental data structures in computer science.
+
+## Why Use Arrays?
+
+- **Constant-time access**: Access any element using its index in O(1) time
+- **Memory efficiency**: Elements stored contiguously in memory
+- **Cache friendly**: Better cache locality due to contiguous storage
+
+## Declaring Arrays
+
+\`\`\`c
+// C/C++
+int arr[5] = {1, 2, 3, 4, 5};
+
+// Java
+int[] arr = new int[5];
+
+// Python
+arr = [1, 2, 3, 4, 5]
+\`\`\`
+
+## Time Complexity
+
+| Operation | Average | Worst |
+|-----------|---------|-------|
+| Access | O(1) | O(1) |
+| Search | O(n) | O(n) |
+| Insert | O(n) | O(n) |
+| Delete | O(n) | O(n) |
+
+## Key Points to Remember
+
+1. Arrays are zero-indexed (first element at index 0)
+2. Size is typically fixed at creation time
+3. All elements must be of the same type
+`,
+                excerpt: 'Learn about arrays, one of the most fundamental data structures',
+                order: 1,
+                status: ContentStatus.PUBLISHED,
+                publishedAt: new Date(),
+                chapterId: chapter1.id,
+                createdById: adminUser.id,
+            },
+        });
+
+        console.log('✅ Chapters and Topics created');
     }
 
-    // Helper to create topic if not exists
-    const createTopic = async (data: any) => {
-        const existing = await prisma.topic.findFirst({
-            where: {
-                userId: user!.id,
-                slug: data.slug,
-                parentId: null
-            }
-        });
-
-        if (existing) return existing;
-
-        return prisma.topic.create({
-            data: {
-                ...data,
-                authorId: undefined, // remove if present in data, use userId instead
-                userId: user!.id,
-            }
-        });
-    };
-
-    // Create Business Topics
-    const businessTopic = await createTopic({
-        name: 'Business Management',
-        slug: 'business-management',
-        description: 'Essential business management concepts and strategies',
-        order: 1,
+    // ============= DEMO STUDENT =============
+    const studentPassword = await bcrypt.hash('Student@123', 10);
+    await prisma.user.upsert({
+        where: { email: 'student@edudocs.in' },
+        update: {},
+        create: {
+            email: 'student@edudocs.in',
+            passwordHash: studentPassword,
+            name: 'Demo Student',
+            role: UserRole.STUDENT,
+            campusId: mainCampus.id,
+            isOnboarded: false,
+        },
     });
+    console.log('✅ Demo users created');
 
-    const marketingTopic = await createTopic({
-        name: 'Marketing',
-        slug: 'marketing',
-        description: 'Marketing strategies and digital marketing guides',
-        order: 2,
-    });
-
-    const financeTopic = await createTopic({
-        name: 'Finance',
-        slug: 'finance',
-        description: 'Financial management and investment strategies',
-        order: 3,
-    });
-
-    const startupTopic = await createTopic({
-        name: 'Startup Guide',
-        slug: 'startup-guide',
-        description: 'Complete guide to starting and scaling a startup',
-        order: 4,
-    });
-
-    console.log('✅ Topics ready');
-
-    // Create Notes
-    const notesData = [
+    // ============= ACHIEVEMENTS =============
+    const achievements = [
         {
-            title: 'Introduction to Business Strategy',
-            slug: 'intro-business-strategy',
-            content: `# Introduction to Business Strategy
-
-## What is Business Strategy ?
-
-    Business strategy is a plan that defines how your organization will achieve its goals and objectives.It encompasses the decisions and actions that guide your company's direction.
-
-## Key Components
-
-### 1. Vision and Mission
-    - ** Vision **: Where you want to be in the future
-        - ** Mission **: What you do and why you exist
-
-### 2. Core Values
-Your fundamental beliefs that guide decision - making:
-- Integrity
-    - Innovation
-    - Customer Focus
-        - Excellence
-
-### 3. Strategic Objectives
-\`\`\`
-SMART Goals:
-- Specific
-- Measurable
-- Achievable
-- Relevant
-- Time-bound
-\`\`\`
-
-## Porter's Five Forces
-
-1. **Competitive Rivalry** - How intense is the competition?
-2. **Supplier Power** - How much leverage do suppliers have?
-3. **Buyer Power** - How much leverage do customers have?
-4. **Threat of Substitution** - Are there alternative products?
-5. **Threat of New Entry** - How easy is it for new competitors?
-
-## SWOT Analysis
-
-| Internal | External |
-|----------|----------|
-| **Strengths** | **Opportunities** |
-| **Weaknesses** | **Threats** |
-
-> "Strategy is about making choices, trade-offs; it's about deliberately choosing to be different." - Michael Porter
-`,
-            topicId: businessTopic.id,
-            order: 1,
+            name: 'First Steps',
+            description: 'Complete your first topic',
+            icon: '🎯',
+            points: 10,
+            category: 'READING' as const,
+            condition: { type: 'topics_completed', count: 1 },
         },
         {
-            title: 'Leadership and Team Management',
-            slug: 'leadership-team-management',
-            content: `# Leadership and Team Management
-
-## The Role of a Leader
-
-Great leaders inspire, motivate, and guide their teams toward success. Leadership is not about authority—it's about influence.
-
-## Leadership Styles
-
-### 1. Transformational Leadership
-- Inspires change through vision
-- Encourages innovation
-- Develops team members
-
-### 2. Servant Leadership
-- Puts team needs first
-- Empowers employees
-- Focuses on development
-
-### 3. Democratic Leadership
-- Involves team in decisions
-- Values diverse opinions
-- Builds consensus
-
-## Building High-Performance Teams
-
-\`\`\`javascript
-const highPerformanceTeam = {
-  trust: "Foundation of teamwork",
-  communication: "Open and transparent",
-  accountability: "Ownership of results",
-  diversity: "Different perspectives",
-  goals: "Aligned objectives"
-};
-\`\`\`
-
-## Key Management Skills
-
-1. **Communication** - Clear, frequent, and honest
-2. **Delegation** - Right task to right person
-3. **Conflict Resolution** - Address issues promptly
-4. **Time Management** - Prioritize effectively
-5. **Emotional Intelligence** - Understand and manage emotions
-
-## Team Development Stages (Tuckman's Model)
-
-| Stage | Description |
-|-------|-------------|
-| Forming | Team comes together |
-| Storming | Conflicts arise |
-| Norming | Rules established |
-| Performing | Peak productivity |
-
-> "A leader is one who knows the way, goes the way, and shows the way." - John C. Maxwell
-`,
-            topicId: businessTopic.id,
-            order: 2,
+            name: 'Bookworm',
+            description: 'Complete 10 topics',
+            icon: '📚',
+            points: 50,
+            category: 'READING' as const,
+            condition: { type: 'topics_completed', count: 10 },
         },
         {
-            title: 'Digital Marketing Fundamentals',
-            slug: 'digital-marketing-fundamentals',
-            content: `# Digital Marketing Fundamentals
-
-## What is Digital Marketing?
-
-Digital marketing encompasses all marketing efforts that use electronic devices or the internet to connect with potential customers.
-
-## Key Channels
-
-### 1. Search Engine Optimization (SEO)
-Optimizing your website to rank higher in search results:
-- On-page SEO
-- Off-page SEO
-- Technical SEO
-
-### 2. Content Marketing
-Creating valuable content to attract and engage audiences:
-- Blog posts
-- Videos
-- Infographics
-- Podcasts
-
-### 3. Social Media Marketing
-Building brand awareness on social platforms:
-- Facebook, Instagram, LinkedIn
-- Twitter (X), TikTok
-- YouTube
-
-### 4. Email Marketing
-Direct communication with subscribers:
-\`\`\`
-Open Rate: 20-25% (good)
-Click Rate: 2-5% (good)
-Conversion: 1-3% (good)
-\`\`\`
-
-## The Marketing Funnel
-
-\`\`\`
-        AWARENESS
-           ↓
-        INTEREST
-           ↓
-       CONSIDERATION
-           ↓
-         INTENT
-           ↓
-        PURCHASE
-           ↓
-        LOYALTY
-\`\`\`
-
-## Key Metrics to Track
-
-| Metric | Description |
-|--------|-------------|
-| CAC | Customer Acquisition Cost |
-| LTV | Customer Lifetime Value |
-| ROAS | Return on Ad Spend |
-| CTR | Click-Through Rate |
-| CVR | Conversion Rate |
-
-> "Content is fire, social media is gasoline." - Jay Baer
-`,
-            topicId: marketingTopic.id,
-            order: 1,
+            name: 'On Fire',
+            description: 'Maintain a 7-day streak',
+            icon: '🔥',
+            points: 100,
+            category: 'STREAK' as const,
+            condition: { type: 'streak', days: 7 },
         },
         {
-            title: 'Financial Planning for Businesses',
-            slug: 'financial-planning-businesses',
-            content: `# Financial Planning for Businesses
-
-## Why Financial Planning Matters
-
-Sound financial planning ensures your business has the resources to achieve its goals and weather economic challenges.
-
-## Key Financial Statements
-
-### 1. Income Statement (P&L)
-Shows profitability over a period:
-\`\`\`
-Revenue
-- Cost of Goods Sold (COGS)
-= Gross Profit
-- Operating Expenses
-= Operating Income
-- Interest & Taxes
-= Net Income
-\`\`\`
-
-### 2. Balance Sheet
-Snapshot of financial position:
-- **Assets** = Liabilities + Equity
-
-### 3. Cash Flow Statement
-Tracks cash movement:
-- Operating activities
-- Investing activities
-- Financing activities
-
-## Important Financial Ratios
-
-| Ratio | Formula | Good Range |
-|-------|---------|------------|
-| Current Ratio | Current Assets / Current Liabilities | 1.5 - 3.0 |
-| Gross Margin | Gross Profit / Revenue | Industry varies |
-| Net Margin | Net Income / Revenue | 10%+ |
-| ROE | Net Income / Equity | 15%+ |
-
-## Budgeting Best Practices
-
-1. **Zero-based budgeting** - Justify every expense
-2. **Rolling forecasts** - Update regularly
-3. **Variance analysis** - Compare actual vs planned
-4. **Contingency reserves** - Plan for unexpected
-
-## Cash Flow Management
-
-\`\`\`javascript
-const healthyCashFlow = {
-  invoicing: "Send immediately",
-  collections: "Follow up within 7 days",
-  payables: "Negotiate favorable terms",
-  reserves: "3-6 months expenses",
-  forecast: "Weekly cash projections"
-};
-\`\`\`
-
-> "Cash is king, but cash flow is the kingdom." - Unknown
-`,
-            topicId: financeTopic.id,
-            order: 1,
-        },
-        {
-            title: 'How to Start a Startup',
-            slug: 'how-to-start-startup',
-            content: `# How to Start a Startup
-
-## The Startup Journey
-
-Starting a company is one of the most challenging and rewarding things you can do. Here's your roadmap to success.
-
-## Step 1: Find a Problem Worth Solving
-
-The best startups solve real problems:
-- Talk to potential customers
-- Identify pain points
-- Validate the market size
-
-\`\`\`
-Problem → Solution → Business Model
-\`\`\`
-
-## Step 2: Validate Your Idea
-
-Before building, validate:
-1. **Customer interviews** (20+ conversations)
-2. **Landing page test** (measure signups)
-3. **MVP** (Minimum Viable Product)
-
-## Step 3: Build Your MVP
-
-Focus on core features only:
-- What's the ONE thing users need?
-- Launch fast, iterate faster
-- Get real user feedback
-
-## Step 4: Find Product-Market Fit
-
-Signs you have PMF:
-- Users are disappointed when product is unavailable
-- Word-of-mouth growth
-- Retention is strong
-- Usage is increasing
-
-## Funding Options
-
-| Stage | Funding Source | Amount |
-|-------|---------------|--------|
-| Pre-seed | Friends, Family, Angels | $50K - $500K |
-| Seed | Angel Investors, Seed Funds | $500K - $2M |
-| Series A | VCs | $2M - $15M |
-| Series B+ | Growth VCs | $15M+ |
-
-## Key Metrics for Startups
-
-\`\`\`javascript
-const startupMetrics = {
-  MRR: "Monthly Recurring Revenue",
-  ARR: "Annual Recurring Revenue", 
-  churn: "Customer churn rate",
-  CAC: "Customer Acquisition Cost",
-  LTV: "Lifetime Value",
-  runway: "Months of cash remaining"
-};
-\`\`\`
-
-## Common Startup Mistakes
-
-1. ❌ Building without validation
-2. ❌ Ignoring unit economics
-3. ❌ Scaling too early
-4. ❌ Wrong co-founder
-5. ❌ Running out of cash
-
-> "The only way to win is to learn faster than anyone else." - Eric Ries
-`,
-            topicId: startupTopic.id,
-            order: 1,
+            name: 'Scholar',
+            description: 'Complete all topics in a subject',
+            icon: '🎓',
+            points: 200,
+            category: 'COMPLETION' as const,
+            condition: { type: 'subject_completed', count: 1 },
         },
     ];
 
-    for (const noteData of notesData) {
-        const existingNote = await prisma.note.findFirst({
-            where: {
-                topicId: noteData.topicId,
-                slug: noteData.slug
-            }
+    for (const achievement of achievements) {
+        await prisma.achievement.upsert({
+            where: { id: achievement.name.toLowerCase().replace(/\s+/g, '-') },
+            update: {},
+            create: {
+                id: achievement.name.toLowerCase().replace(/\s+/g, '-'),
+                ...achievement,
+            },
         });
-
-        if (!existingNote) {
-            await prisma.note.create({
-                data: {
-                    ...noteData,
-                    userId: user!.id,
-                    isPublic: true,
-                    isDraft: false,
-                }
-            });
-        }
     }
+    console.log('✅ Achievements created');
 
-    console.log('✅ Created/Verified', notesData.length, 'notes');
-    console.log('🎉 Seeding complete!');
+    // ============= SUBSCRIPTION PLANS =============
+    const plans = [
+        {
+            name: 'Free',
+            code: 'FREE',
+            description: 'Basic access for students',
+            price: 0,
+            features: ['Access to all public content', 'Basic analytics', '5 bookmarks', '10 flashcards'],
+            limits: { apiCalls: 100, storage: '100MB' },
+        },
+        {
+            name: 'Pro',
+            code: 'PRO',
+            description: 'Enhanced features for serious learners',
+            price: 199,
+            features: ['All Free features', 'Unlimited bookmarks', 'Unlimited flashcards', 'AI-generated quizzes', 'Priority support'],
+            limits: { apiCalls: 1000, storage: '5GB' },
+        },
+        {
+            name: 'Enterprise',
+            code: 'ENTERPRISE',
+            description: 'For institutions and universities',
+            price: 4999,
+            features: ['All Pro features', 'Custom branding', 'Admin dashboard', 'API access', 'Dedicated support'],
+            limits: { apiCalls: 10000, storage: '100GB' },
+        },
+    ];
+
+    for (let i = 0; i < plans.length; i++) {
+        await prisma.subscriptionPlan.upsert({
+            where: { code: plans[i].code },
+            update: {},
+            create: {
+                ...plans[i],
+                displayOrder: i,
+            },
+        });
+    }
+    console.log('✅ Subscription plans created');
+
+    console.log('\n🎉 Seed completed successfully!\n');
+    console.log('Demo Credentials:');
+    console.log('  Admin: admin@edudocs.in / Admin@123');
+    console.log('  Student: student@edudocs.in / Student@123');
 }
 
 main()
     .catch((e) => {
-        console.error('Error seeding:', e);
+        console.error('❌ Seed failed:', e);
         process.exit(1);
     })
     .finally(async () => {
