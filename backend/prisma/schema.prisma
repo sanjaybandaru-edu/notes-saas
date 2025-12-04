@@ -1,0 +1,123 @@
+// Prisma Schema for Notes SaaS Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String?
+  name          String?
+  avatar        String?
+  provider      String    @default("email") // email, google, github
+  providerId    String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  topics        Topic[]
+  notes         Note[]
+  files         File[]
+  
+  @@index([email])
+  @@index([provider, providerId])
+}
+
+model Topic {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  order       Int       @default(0)
+  isPublic    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Self-referencing for nested topics
+  parentId    String?
+  parent      Topic?    @relation("TopicHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Topic[]   @relation("TopicHierarchy")
+  
+  // Relations
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes       Note[]
+  
+  @@unique([userId, slug, parentId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([slug])
+}
+
+model Note {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String
+  content     String    @db.Text
+  excerpt     String?
+  order       Int       @default(0)
+  isPublic    Boolean   @default(false)
+  isDraft     Boolean   @default(true)
+  views       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+  
+  // Relations
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId     String
+  topic       Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  files       File[]
+  tags        Tag[]
+  
+  @@unique([topicId, slug])
+  @@index([userId])
+  @@index([topicId])
+  @@index([slug])
+  @@index([isPublic])
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+  
+  notes     Note[]
+  
+  @@index([slug])
+}
+
+model File {
+  id          String   @id @default(uuid())
+  name        String
+  key         String   @unique  // S3 key
+  url         String
+  size        Int
+  mimeType    String
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  noteId      String?
+  note        Note?    @relation(fields: [noteId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([noteId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
