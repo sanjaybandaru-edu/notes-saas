@@ -8,4 +8,4 @@ echo "Seeding admin user..."
 node prisma/seed-admin.js || echo "Admin seed failed - check logs"
 
 echo "Starting application..."
-exec node dist/index.js
+exec node dist/src/index.js
