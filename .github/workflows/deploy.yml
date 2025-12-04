@@ -40,19 +40,6 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
-      - name: Setup Node.js for migrations
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Run database migrations
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          cd backend
-          npm ci
-          npx prisma migrate deploy
-
       - name: Update ECS service
         run: |
           aws ecs update-service \
