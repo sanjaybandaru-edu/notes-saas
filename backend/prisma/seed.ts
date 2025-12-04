@@ -6,95 +6,102 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('🌱 Seeding database...');
 
-    // Check if demo user exists
-    const existingUser = await prisma.user.findUnique({
-        where: { email: 'sanjay@collegehive.in' }
+    const email = 'sanjay@collegehive.in';
+    let user = await prisma.user.findUnique({
+        where: { email }
     });
 
-    if (existingUser) {
-        console.log('Demo content already exists, skipping...');
-        return;
+    if (!user) {
+        console.log('Creating demo user...');
+        const passwordHash = await bcrypt.hash('NotesApp123!', 12);
+        user = await prisma.user.create({
+            data: {
+                email,
+                passwordHash,
+                name: 'Sanjay',
+                role: 'ADMIN',
+            }
+        });
+        console.log('✅ Created user:', user.email);
+    } else {
+        console.log('User already exists:', user.email);
     }
 
-    // Create demo user
-    const passwordHash = await bcrypt.hash('NotesApp123!', 12);
-    const user = await prisma.user.create({
-        data: {
-            email: 'sanjay@collegehive.in',
-            passwordHash,
-            name: 'Sanjay',
-            role: 'admin',
-        }
-    });
+    // Helper to create topic if not exists
+    const createTopic = async (data: any) => {
+        const existing = await prisma.topic.findFirst({
+            where: {
+                userId: user!.id,
+                slug: data.slug,
+                parentId: null
+            }
+        });
 
-    console.log('✅ Created user:', user.email);
+        if (existing) return existing;
+
+        return prisma.topic.create({
+            data: {
+                ...data,
+                authorId: undefined, // remove if present in data, use userId instead
+                userId: user!.id,
+            }
+        });
+    };
 
     // Create Business Topics
-    const businessTopic = await prisma.topic.create({
-        data: {
-            name: 'Business Management',
-            slug: 'business-management',
-            description: 'Essential business management concepts and strategies',
-            authorId: user.id,
-            order: 1,
-        }
+    const businessTopic = await createTopic({
+        name: 'Business Management',
+        slug: 'business-management',
+        description: 'Essential business management concepts and strategies',
+        order: 1,
     });
 
-    const marketingTopic = await prisma.topic.create({
-        data: {
-            name: 'Marketing',
-            slug: 'marketing',
-            description: 'Marketing strategies and digital marketing guides',
-            authorId: user.id,
-            order: 2,
-        }
+    const marketingTopic = await createTopic({
+        name: 'Marketing',
+        slug: 'marketing',
+        description: 'Marketing strategies and digital marketing guides',
+        order: 2,
     });
 
-    const financeTopic = await prisma.topic.create({
-        data: {
-            name: 'Finance',
-            slug: 'finance',
-            description: 'Financial management and investment strategies',
-            authorId: user.id,
-            order: 3,
-        }
+    const financeTopic = await createTopic({
+        name: 'Finance',
+        slug: 'finance',
+        description: 'Financial management and investment strategies',
+        order: 3,
     });
 
-    const startupTopic = await prisma.topic.create({
-        data: {
-            name: 'Startup Guide',
-            slug: 'startup-guide',
-            description: 'Complete guide to starting and scaling a startup',
-            authorId: user.id,
-            order: 4,
-        }
+    const startupTopic = await createTopic({
+        name: 'Startup Guide',
+        slug: 'startup-guide',
+        description: 'Complete guide to starting and scaling a startup',
+        order: 4,
     });
 
-    console.log('✅ Created topics');
+    console.log('✅ Topics ready');
 
     // Create Notes
-    const notes = [
+    const notesData = [
         {
             title: 'Introduction to Business Strategy',
             slug: 'intro-business-strategy',
             content: `# Introduction to Business Strategy
 
-## What is Business Strategy?
+## What is Business Strategy ?
 
-Business strategy is a plan that defines how your organization will achieve its goals and objectives. It encompasses the decisions and actions that guide your company's direction.
+    Business strategy is a plan that defines how your organization will achieve its goals and objectives.It encompasses the decisions and actions that guide your company's direction.
 
 ## Key Components
 
 ### 1. Vision and Mission
-- **Vision**: Where you want to be in the future
-- **Mission**: What you do and why you exist
+    - ** Vision **: Where you want to be in the future
+        - ** Mission **: What you do and why you exist
 
 ### 2. Core Values
-Your fundamental beliefs that guide decision-making:
+Your fundamental beliefs that guide decision - making:
 - Integrity
-- Innovation
-- Customer Focus
-- Excellence
+    - Innovation
+    - Customer Focus
+        - Excellence
 
 ### 3. Strategic Objectives
 \`\`\`
@@ -124,8 +131,6 @@ SMART Goals:
 > "Strategy is about making choices, trade-offs; it's about deliberately choosing to be different." - Michael Porter
 `,
             topicId: businessTopic.id,
-            authorId: user.id,
-            isPublic: true,
             order: 1,
         },
         {
@@ -186,8 +191,6 @@ const highPerformanceTeam = {
 > "A leader is one who knows the way, goes the way, and shows the way." - John C. Maxwell
 `,
             topicId: businessTopic.id,
-            authorId: user.id,
-            isPublic: true,
             order: 2,
         },
         {
@@ -257,8 +260,6 @@ Conversion: 1-3% (good)
 > "Content is fire, social media is gasoline." - Jay Baer
 `,
             topicId: marketingTopic.id,
-            authorId: user.id,
-            isPublic: true,
             order: 1,
         },
         {
@@ -325,8 +326,6 @@ const healthyCashFlow = {
 > "Cash is king, but cash flow is the kingdom." - Unknown
 `,
             topicId: financeTopic.id,
-            authorId: user.id,
-            isPublic: true,
             order: 1,
         },
         {
@@ -404,17 +403,31 @@ const startupMetrics = {
 > "The only way to win is to learn faster than anyone else." - Eric Ries
 `,
             topicId: startupTopic.id,
-            authorId: user.id,
-            isPublic: true,
             order: 1,
         },
     ];
 
-    for (const note of notes) {
-        await prisma.note.create({ data: note });
+    for (const noteData of notesData) {
+        const existingNote = await prisma.note.findFirst({
+            where: {
+                topicId: noteData.topicId,
+                slug: noteData.slug
+            }
+        });
+
+        if (!existingNote) {
+            await prisma.note.create({
+                data: {
+                    ...noteData,
+                    userId: user!.id,
+                    isPublic: true,
+                    isDraft: false,
+                }
+            });
+        }
     }
 
-    console.log('✅ Created', notes.length, 'notes');
+    console.log('✅ Created/Verified', notesData.length, 'notes');
     console.log('🎉 Seeding complete!');
 }
 
