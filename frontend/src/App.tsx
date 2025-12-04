@@ -2,10 +2,12 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/auth';
 import Layout from './components/Layout';
+import AdminLayout from './components/AdminLayout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import NotesViewer from './pages/NotesViewer';
 import NotesEditor from './pages/NotesEditor';
 import TopicPage from './pages/TopicPage';
@@ -32,7 +34,7 @@ function App() {
                 <Route path=":topicSlug/:noteSlug" element={<NotesViewer />} />
             </Route>
 
-            {/* Protected routes */}
+            {/* Protected routes - User Dashboard */}
             <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Layout showSidebar />}>
                     <Route index element={<Dashboard />} />
@@ -43,6 +45,19 @@ function App() {
                 <Route path="/editor" element={<Layout showSidebar />}>
                     <Route path="new" element={<NotesEditor />} />
                     <Route path=":noteId" element={<NotesEditor />} />
+                </Route>
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute />}>
+                <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<AdminDashboard />} />
+                    <Route path="content" element={<AdminDashboard />} />
+                    <Route path="users" element={<AdminDashboard />} />
+                    <Route path="analytics" element={<AdminDashboard />} />
+                    <Route path="api" element={<AdminDashboard />} />
+                    <Route path="audit" element={<AdminDashboard />} />
+                    <Route path="settings" element={<AdminDashboard />} />
                 </Route>
             </Route>
         </Routes>
