@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth.js';
 import academicRoutes from './routes/academic.js';
+import contentRoutes from './routes/content.js';
+import templateRoutes from './routes/templates.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -42,6 +44,8 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/academic', academicRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/templates', templateRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -52,8 +56,7 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📚 EduDocs API ready`);
+    console.log(`🚀 EduDocs API running on http://localhost:${PORT}`);
 });
 
 export default app;

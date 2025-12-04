@@ -411,6 +411,95 @@ arr = [1, 2, 3, 4, 5]
     }
     console.log('✅ Subscription plans created');
 
+    // ============= CONTENT TEMPLATES =============
+    const adminUser = await prisma.user.findUnique({ where: { email: 'admin@edudocs.in' } });
+    if (adminUser) {
+        const templates = [
+            {
+                name: 'Lecture Notes',
+                description: 'Standard template for lecture notes',
+                category: 'lecture',
+                isGlobal: true,
+                content: `# Lecture Title
+
+## Learning Objectives
+
+By the end of this lecture, you will be able to:
+- Objective 1
+- Objective 2
+
+## Introduction
+
+Brief introduction to the topic.
+
+## Main Content
+
+### Section 1
+Content here...
+
+### Section 2
+Content here...
+
+## Key Takeaways
+
+- Point 1
+- Point 2
+
+## Further Reading
+
+- Resource 1
+- Resource 2
+`,
+            },
+            {
+                name: 'Lab Manual',
+                description: 'Template for laboratory experiments',
+                category: 'lab',
+                isGlobal: true,
+                content: `# Lab Title
+
+## Objective
+State the objective of this lab.
+
+## Prerequisites
+- Prerequisite 1
+
+## Materials Required
+- Material 1
+
+## Theory
+Brief theoretical background.
+
+## Procedure
+1. Step 1
+2. Step 2
+
+## Observations
+Record your observations here.
+
+## Results
+Present your results.
+
+## Conclusion
+Summarize your findings.
+`,
+            },
+        ];
+
+        for (const template of templates) {
+            await prisma.contentTemplate.upsert({
+                where: { id: template.name.toLowerCase().replace(/\\s+/g, '-') },
+                update: {},
+                create: {
+                    id: template.name.toLowerCase().replace(/\\s+/g, '-'),
+                    ...template,
+                    createdById: adminUser.id,
+                },
+            });
+        }
+        console.log('✅ Content templates created');
+    }
+
     console.log('\n🎉 Seed completed successfully!\n');
     console.log('Demo Credentials:');
     console.log('  Admin: admin@edudocs.in / Admin@123');
