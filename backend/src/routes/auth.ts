@@ -22,11 +22,12 @@ const loginSchema = z.object({
 
 // Generate JWT token
 function generateToken(userId: string, email: string): string {
-    return jwt.sign(
-        { userId, email },
-        process.env.JWT_SECRET!,
-        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-    );
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) {
+        throw new Error('JWT_SECRET environment variable is not defined');
+    }
+    const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
+    return jwt.sign({ userId, email }, jwtSecret, { expiresIn });
 }
 
 // Register
