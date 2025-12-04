@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import academicRoutes from './routes/academic.js';
 import contentRoutes from './routes/content.js';
 import templateRoutes from './routes/templates.js';
+import readerRoutes from './routes/reader.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/academic', academicRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/reader', readerRoutes);
 
 // Error handling
 app.use(errorHandler);

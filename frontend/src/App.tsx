@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import TopicReader from './pages/TopicReader';
 import NotesViewer from './pages/NotesViewer';
 import NotesEditor from './pages/NotesEditor';
 import TopicPage from './pages/TopicPage';
@@ -33,6 +34,9 @@ function App() {
                 <Route path=":topicSlug" element={<TopicPage />} />
                 <Route path=":topicSlug/:noteSlug" element={<NotesViewer />} />
             </Route>
+
+            {/* Reader - Public access to content */}
+            <Route path="/read/:subjectId/:chapterId/:topicId" element={<TopicReader />} />
 
             {/* Protected routes - User Dashboard */}
             <Route element={<ProtectedRoute />}>
